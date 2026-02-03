@@ -2,12 +2,16 @@
 // ESTADO DEL JUEGO
 // -----------------------------
 let state = {
-    scene: "subterraneo",
-    obsesion: 0,
-    obediencia: 0,
-    retardo: 0,
-    literal: 0
-  };
+  scene: "subterraneo",
+  visited: {
+    subterraneo: true
+  },
+  obsesion: 0,
+  obediencia: 0,
+  retardo: 0,
+  literal: 0
+};
+
 
 // -----------------------------
 // MEMORIA DEL JUGADOR
@@ -28,13 +32,26 @@ let repetitionCount = 0;
   // TEXTO INICIAL
   // -----------------------------
   const scenes = {
-    subterraneo: `
-  El aire es pesado.
-  El suelo está húmedo.
-  La luz parpadea sin ritmo.
-  No sabes cuánto tiempo llevas aquí.
-  `
-  };
+  subterraneo: `
+El aire es pesado.
+El suelo está húmedo.
+La luz parpadea sin ritmo.
+No sabes cuánto tiempo llevas aquí.
+`,
+
+  transicion: `
+No estás donde estabas.
+El aire ya no pesa igual.
+Algo quedó atrás.
+`,
+
+  corredor: `
+El espacio es más estrecho.
+Las paredes están demasiado cerca.
+Hay marcas que no recuerdas haber hecho.
+`
+};
+
   
   // -----------------------------
   // FRASES DE LA PRESENCIA
@@ -215,6 +232,8 @@ let repetitionCount = 0;
     });
   
     memory.lastWords = words.slice(-3);
+
+
   
     // -----------------------------
     // NEGACIÓN
@@ -277,7 +296,12 @@ let repetitionCount = 0;
       textBox.innerHTML += `<br>Pensar no aclara este lugar.`;
       showPresence("literal");
     }
-  
+
+    else if (action === "respirar" || action === "callar" || action === "silencio") {
+  state.obsesion = Math.max(0, state.obsesion - 2);
+  textBox.innerHTML += `<br>El lugar no responde. Tampoco insiste.`;
+}
+
     else {
       textBox.innerHTML += `<br>No ocurre nada inmediato.`;
     }
@@ -299,6 +323,20 @@ let repetitionCount = 0;
       speakToPlayer();
     }
   
+    if (state.obsesion <= 1 && state.retardo >= 1 && state.literal >= 1) {
+  state.scene = "transicion";
+  textBox.innerHTML += `
+  <br><br>
+  Algo se afloja.
+  <br>
+  No era una puerta.
+  `;
+}
+scenes.transicion = `
+No estás donde estabas.
+El aire ya no pesa igual.
+`;
+
     // -----------------------------
     // FINAL AUTOMÁTICO (FALSO)
     // -----------------------------
@@ -335,6 +373,17 @@ let repetitionCount = 0;
   // RENDER
   // -----------------------------
   function render() {
-    // Aquí luego conectamos música, escenas, finales
+  if (!state.visited[state.scene]) {
+    textBox.innerHTML += `
+    <br><br>
+    <span style="opacity:0.9">
+    ${scenes[state.scene]}
+    </span>
+    `;
+    state.visited[state.scene] = true;
   }
+}
+
+    // Aquí luego conectamos música, escenas, finales
+  
   
