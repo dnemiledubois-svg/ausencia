@@ -11,34 +11,26 @@ let state = {
   retardo: 0,
   literal: 0
 };
+
 let calmProgress = 0;
 let sceneBlocked = false;
-
-
 
 // -----------------------------
 // MEMORIA DEL JUGADOR
 // -----------------------------
 let memory = {
-  words: {},        // palabra -> conteo
-  lastWords: [],    // últimas palabras usadas
-  echoes: []        // palabras que la Presencia puede usar
+  words: {},
+  lastWords: [],
+  echoes: []
 };
 
-  
 let lastIntent = null;
 let repetitionCount = 0;
 
-   
-  
-  // -----------------------------
-  // TEXTO INICIAL
-  // -----------------------------
-  // -----------------------------
-// ESCENAS DEL JUEGO
+// -----------------------------
+// ESCENAS
 // -----------------------------
 const scenes = {
-
   subterraneo: `
 El aire es pesado.
 El suelo está húmedo.
@@ -46,7 +38,7 @@ La luz parpadea sin ritmo.
 
 No sabes cuánto tiempo llevas aquí.
 No recuerdas haber llegado.
-  `,
+`,
 
   transicion: `
 No estás donde estabas.
@@ -56,7 +48,7 @@ pero sigues respirándolo con cuidado.
 
 Algo cambió.
 No sabes qué hiciste para que ocurriera.
-  `,
+`,
 
   contradiccion: `
 Las paredes parecen más lejanas,
@@ -64,399 +56,211 @@ aunque el espacio es el mismo.
 
 Cada acción se siente correcta
 y equivocada al mismo tiempo.
-
-Avanzar no es lo que era antes.
-  `,
+`,
 
   inversion: `
 Aquí, esperar produce ruido.
 Pensar deja marcas.
 Obedecer altera el entorno.
-
-Nada responde como debería.
-Y sin embargo, responde.
-  `,
+`,
 
   presencia: `
 No hay lugar aquí.
 
-La luz no viene de arriba.
-La oscuridad no viene de abajo.
-
 Ya no estás solo,
 aunque nunca lo estuviste.
-  `
+`
 };
 
-  
-  // -----------------------------
-  // FRASES DE LA PRESENCIA
-  // -----------------------------
-  const presence = {
-    obsesion: [
-      "No era necesario.",
-      "Insistir no lo hizo distinto.",
-      "Esto no cambió nada."
-    ],
-    obediencia: [
-      "No era la forma.",
-      "Eso ya había terminado."
-    ],
-    retardo: [
-      "Aquí alguien esperó más de lo que debía.",
-      "No todos se fueron cuando pudieron."
-    ],
-    literal: [
-      "Algunas puertas no se abren para salir."
-    ]
-  };
+// -----------------------------
+// REGLAS DE ESCENA
+// -----------------------------
+const sceneRules = {
+  subterraneo: { calmNeeded: 5, next: "transicion" },
+  transicion: { calmNeeded: 4, next: "contradiccion" },
+  contradiccion: { calmNeeded: 3, next: "inversion" },
+  inversion: { calmNeeded: 3, next: "presencia" }
+};
+
+// -----------------------------
+// PRESENCIA
+// -----------------------------
+const presence = {
+  obsesion: ["No era necesario.", "Esto no cambió nada."],
+  obediencia: ["No era la forma."],
+  retardo: ["Aquí alguien esperó demasiado."],
+  literal: ["Pensar no abre puertas."]
+};
+
+// -----------------------------
+// INTENCIONES
+// -----------------------------
+const intents = {
+  exploracion: [
+    "explor","busc","mir","observ","examin","recorr","revis",
+    "investig","inspeccion","verif","escudriñ","husme",
+    "rastre","indag","sonde","oje","detall",
+    "curiose","averigu","analiz","reconoc","patrull",
+    "registr","map"
+  ],
+
+  fuerza: [
+    "forz","romp","golp","empuj","pate","arranc","destroz",
+    "quebr","revent","viol","aplast","impact",
+    "sacud","estrell","agarr","tirone","dobl",
+    "torc","rasg","part","machac","clav",
+    "presion","hund"
+  ],
+
+  espera: [
+    "esper","qued","deten","par","aguant","resist",
+    "paus","inmov","permanec","repos","contempl",
+    "dej","silenc","call","quiet",
+    "suspend","retard","dilat","posterg","aplaz",
+    "demor","estanc","fren","paraliz"
+  ],
+
+  obediencia: [
+    "obedec","segu","acept","acat","cumpl","somet",
+    "ced","rend","asent","consent",
+    "permit","respet","ejecut","aline",
+    "acced","dobleg","clausur","disciplin",
+    "subordin","conform","ajust","deleg",
+    "impos"
+  ],
+
+  reflexion: [
+    "pens","reflexion","record","entend","analiz",
+    "medit","consider","evalu","razon","dud",
+    "cuestion","interpret","comprend","imagin",
+    "intu","discern","contempl","ponder",
+    "examin","replante","asoci",
+    "memoriz","visualiz","proyect"
+  ]
+};
 
 
-  // INTENCIONES //
+const negations = ["no", "nunca", "jamás", "jamas", "ni"];
 
-  const intents = {
-    exploracion: ["explor", "busc", "mir", "exam", "recorr", "revis"],
-    fuerza: ["forz", "romp", "golp", "empuj"],
-    espera: ["esper", "qued", "deten", "par"],
-    obediencia: ["obedec", "segu", "acept"],
-    reflexion: ["pens", "entend", "record"]
-  };
-  
-  const negations = ["no", "nunca", "jamás", "jamas", "ni"];
+// -----------------------------
+// DOM
+// -----------------------------
+const textBox = document.getElementById("text");
+const input = document.getElementById("input");
+const button = document.getElementById("actionBtn");
 
-  
-  // -----------------------------
-  // INICIO
-  // -----------------------------
-  const textBox = document.getElementById("text");
-  const input = document.getElementById("input");
-  const button = document.getElementById("actionBtn");
-  
-  textBox.innerHTML = scenes[state.scene];
-  
-  // -----------------------------
-  // EVENTO PRINCIPAL
-  // -----------------------------
-  button.addEventListener("click", handleAction);
-  input.addEventListener("keypress", e => {
-    if (e.key === "Enter") handleAction();
+textBox.innerHTML = scenes[state.scene];
+
+// -----------------------------
+// EVENTOS
+// -----------------------------
+button.addEventListener("click", handleAction);
+input.addEventListener("keypress", e => {
+  if (e.key === "Enter") handleAction();
+});
+
+// -----------------------------
+// UTILIDADES
+// -----------------------------
+function normalizeText(text) {
+  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function extractWords(text) {
+  return text.split(" ").map(w => w.trim()).filter(w => w.length > 2);
+}
+
+function detectIntent(action, keywords) {
+  return keywords.some(k => action.includes(k));
+}
+
+// -----------------------------
+// LÓGICA PRINCIPAL
+// -----------------------------
+function handleAction() {
+  const raw = input.value.trim();
+  input.value = "";
+
+  if (raw === "" || raw === "..." || raw === "silencio") {
+    registerCalmAction();
+    textBox.innerHTML += `<br><span style="opacity:.5">Permaneces en silencio.</span>`;
+    return;
+  }
+
+  analyzeAction(normalizeText(raw));
+  render();
+}
+  if (!lastIntent) registerCalmAction();
+
+
+
+function analyzeAction(action) {
+  const words = extractWords(action);
+
+  words.forEach(w => {
+    memory.words[w] = (memory.words[w] || 0) + 1;
+    if (memory.words[w] === 2) memory.echoes.push(w);
   });
-  
-  // -----------------------------
-  // LÓGICA DEL JUEGO
-  // -----------------------------
-  function handleAction() {
-    const raw = input.value.trim();
-    input.value = "";
-  
-    if (raw === "" || raw === "..." || raw.toLowerCase() === "silencio") {
-      handleSilence();
-      return;
-    }
-  
-    const action = normalizeText(raw);
-    analyzeAction(action);
-    render();
-  }
-  
-  function speakToPlayer() {
-    if (memory.echoes.length === 0) return;
-  
-    const word = memory.echoes[Math.floor(Math.random() * memory.echoes.length)];
-    textBox.innerHTML += `
-      <br><span style="opacity:0.75; font-style:italic">
-      Dijiste "${word}".
-      </span>`;
-  }
 
-  function lieWithWords() {
+  let intent = null;
 
-    // activar distorsión
-    document.body.classList.add("lie");
-  
-    // quitarla sola (como un espasmo)
-    setTimeout(() => {
-      document.body.classList.remove("lie");
-    }, 600);
-  
-    // mentir con palabras del jugador
-    const word =
-      memory.echoes[Math.floor(Math.random() * memory.echoes.length)];
-  
-    const lies = [
-      `"${word}" ya fue usado correctamente.`,
-      `Eso no es "${word}".`,
-      `"${word}" te alejó más.`,
-      `Creíste entender "${word}".`,
-      `"${word}" no era tuyo.`
-    ];
-  
-    const phrase = lies[Math.floor(Math.random() * lies.length)];
-  
-    textBox.innerHTML += `
-      <br><span class="presence">
-      ${phrase}
-      </span>`;
+for (const key in intents) {
+  if (detectIntent(action, intents[key])) {
+    intent = key;
+    break; // ← CLAVE
   }
-  
+}
 
-  function showPresence(type) {
-    const lines = presence[type];
-    if (!lines) return;
-  
-    const line = lines[Math.floor(Math.random() * lines.length)];
-    textBox.innerHTML += `
-      <br><span style="opacity:0.7">
-      ${line}
-      </span>`;
-  }
-  
-  function handleSilence() {
-  textBox.innerHTML += `
-    <br><span style="opacity:0.5">
-    Permaneces en silencio.
-    </span>`;
-  
+
+  if (intent === lastIntent) repetitionCount++;
+  else repetitionCount = 0;
+  lastIntent = intent;
+
+  if (intent === "espera") {
+  textBox.innerHTML += `<br>El tiempo no se detiene aquí.`;
   registerCalmAction();
 }
+else if (intent) {
+  textBox.innerHTML += `<br>No ocurre nada inmediato.`;
+}
+else {
+  textBox.innerHTML += `
+    <br><span style="opacity:.6">
+    El lugar no reacciona a eso.
+    </span>`;
+}
+
+}
+
+// -----------------------------
+// AVANCE DE ESCENA
+// -----------------------------
 function registerCalmAction() {
-  if (sceneBlocked) return;
-
   calmProgress++;
+  const rule = sceneRules[state.scene];
 
-  if (calmProgress >= 5) {
+  if (rule && calmProgress >= rule.calmNeeded) {
     advanceScene();
   }
 }
 
-  
-  
- // DETECTA INTENCION// linea 49
-
- function detectNegation(action) {
-  return negations.some(neg => action.includes(` ${neg} `) || action.startsWith(neg + " "));
-}
-
-
- function detectIntent(action, keywords) {
-  return keywords.some(word => action.includes(word));
-}
-
-  // -----------------------------
-  // ANALIZADOR SIMPLE
-  // -----------------------------
-
-  // QUITA TILDES//
-
-  function normalizeText(text) {
-    return text
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-  }
-  
-  function analyzeAction(action) {
-
-    // -----------------------------
-    // MEMORIA DE PALABRAS
-    // -----------------------------
-    const words = extractWords(action);
-
-      
-  
-    words.forEach(word => {
-      memory.words[word] = (memory.words[word] || 0) + 1;
-  
-      if (memory.words[word] === 2) {
-        memory.echoes.push(word); // palabra empieza a obsesionar
-      }
-    });
-  
-    memory.lastWords = words.slice(-3);
-
-     function extractWords(text) {
-      return text
-        .split(" ")
-        .map(w => w.trim())
-        .filter(w => w.length > 2);
-    }
-  
-    // -----------------------------
-    // NEGACIÓN
-    // -----------------------------
-    const hasNegation = detectNegation(action);
-  
-    // -----------------------------
-    // DETECTAR INTENCIÓN
-    // -----------------------------
-    let currentIntent = null;
-  
-    if (detectIntent(action, intents.exploracion)) currentIntent = "exploracion";
-    else if (detectIntent(action, intents.espera)) currentIntent = "espera";
-    else if (detectIntent(action, intents.obediencia)) currentIntent = "obediencia";
-    else if (detectIntent(action, intents.fuerza)) currentIntent = "fuerza";
-    else if (detectIntent(action, intents.reflexion)) currentIntent = "reflexion";
-  
-    // -----------------------------
-    // REPETICIÓN
-    // -----------------------------
-    if (currentIntent && currentIntent === lastIntent) {
-      repetitionCount++;
-    } else {
-      repetitionCount = 0;
-    }
-  
-    lastIntent = currentIntent;
-  
-    // -----------------------------
-    // RESPUESTAS POR INTENCIÓN
-    // -----------------------------
-    // -----------------------------
-// LÓGICA DE ESCENA: INICIO
-// -----------------------------
-
-  // Bloqueo explícito
-  if (sceneBlocked) {
-    textBox.innerHTML += `
-    <br><span style="opacity:0.6">
-    Algo aquí se cierra cuando fuerzas.
-    </span>`;
-    return; // NO puede avanzar
-  }
-
-  
-    if (currentIntent === "exploracion") {
-      state.obsesion++;
-      if (hasNegation) state.obsesion++;
-  
-      textBox.innerHTML += `<br>Exploras, pero nada se ordena.`;
-      showPresence("obsesion");
-    }
-  
-    else if (currentIntent === "fuerza") {
-      state.obsesion += 2;
-      textBox.innerHTML += `<br>La fuerza no responde.`;
-      showPresence("obsesion");
-    }
-  
-    else if (currentIntent === "obediencia") {
-      state.obediencia++;
-      textBox.innerHTML += `<br>Sigues una instrucción que no recuerdas haber recibido.`;
-      showPresence("obediencia");
-    }
-  
-    else if (currentIntent === "espera") {
-      state.retardo++;
-      textBox.innerHTML += `<br>El tiempo no se detiene aquí.`;
-      showPresence("retardo");
-    }
-  
-    else if (currentIntent === "reflexion") {
-      state.literal++;
-      textBox.innerHTML += `<br>Pensar no aclara este lugar.`;
-      showPresence("literal");
-    }
-
-    else if (action === "respirar" || action === "callar" || action === "silencio") {
-  state.obsesion = Math.max(0, state.obsesion - 2);
-  textBox.innerHTML += `<br>El lugar no responde. Tampoco insiste.`;
-}
-
-  else if (currentIntent === "espera" || currentIntent === "reflexion") {
-  registerCalmAction();
-}
-  
-    else {
-      textBox.innerHTML += `<br>No ocurre nada inmediato.`;
-    }
-  
-    // -----------------------------
-    // RESPUESTA A REPETICIÓN
-    // -----------------------------
-    if (repetitionCount >= 2) {
-      textBox.innerHTML += `
-      <br><span style="opacity:0.6">
-      Lo intentas otra vez. No es distinto.
-      </span>`;
-    }
-    if (state.scene === "subterraneo" &&
-      (currentIntent === "fuerza" || currentIntent === "exploracion")) {
-  sceneBlocked = true;
-  textBox.innerHTML += `
-    <br><span style="opacity:0.6">
-    Algo aquí se cerró.
-    </span>`;
-}
-
-  function advanceScene() {
+function advanceScene() {
   calmProgress = 0;
-  sceneBlocked = false;
+  state.scene = sceneRules[state.scene].next;
 
-  if (state.scene === "subterraneo") {
-    state.scene = "transicion";
-  }
-  // después agregamos las otras escenas aquí
+  textBox.innerHTML += `
+  <br><br>
+  <strong>De pronto cambia la intensidad de la luz y se torna todo diferente.</strong>
+  <br>
+  <span style="opacity:.7">${scenes[state.scene]}</span>
+  `;
+
+  state.visited[state.scene] = true;
 }
 
-    // -----------------------------
-    // LA PRESENCIA HABLA (O CALLA)
-    // -----------------------------
-    if (Math.random() < 0.35 || repetitionCount >= 2) {
-      speakToPlayer();
-    }
-  
-    
-  
-
-
-
-    // -----------------------------
-    // FINAL AUTOMÁTICO (FALSO)
-    // -----------------------------
-    checkAutoEnding();
-  
-  
-  function checkAutoEnding() {
-    if (state.obsesion >= 6 && repetitionCount >= 3) {
-      triggerFalseEnding();
-    }
-  }
-  
-  
-  function triggerFalseEnding() {
-    textBox.innerHTML += `
-    <br><br>
-    <strong>
-    Todo se detiene.
-    </strong><br>
-    Has hecho todo lo posible.<br>
-    <span style="opacity:0.6">
-    Eso no era suficiente.
-    </span>
-    `;
-    
-    input.disabled = true;
-    button.disabled = true;
-  }
-  
- 
-
-
-  // -----------------------------
-  // RENDER
-  // -----------------------------
-  function render() {
-  if (!state.visited[state.scene]) {
-    textBox.innerHTML += `
-    <br><br>
-    <span style="opacity:0.9">
-    ${scenes[state.scene]}
-    </span>
-    `;
-    state.visited[state.scene] = true;
-  }
+// -----------------------------
+// RENDER
+// -----------------------------
+function render() {
+  // intencionalmente vacío: el flujo ya escribe
 }
-
-    // Aquí luego conectamos música, escenas, finales
-  
-  }  
