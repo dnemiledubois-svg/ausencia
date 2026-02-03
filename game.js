@@ -11,6 +11,9 @@ let state = {
   retardo: 0,
   literal: 0
 };
+let calmProgress = 0;
+let sceneBlocked = false;
+
 
 
 // -----------------------------
@@ -31,25 +34,58 @@ let repetitionCount = 0;
   // -----------------------------
   // TEXTO INICIAL
   // -----------------------------
-  const scenes = {
+  // -----------------------------
+// ESCENAS DEL JUEGO
+// -----------------------------
+const scenes = {
+
   subterraneo: `
 El aire es pesado.
 El suelo está húmedo.
 La luz parpadea sin ritmo.
+
 No sabes cuánto tiempo llevas aquí.
-`,
+No recuerdas haber llegado.
+  `,
 
   transicion: `
 No estás donde estabas.
-El aire ya no pesa igual.
-Algo quedó atrás.
-`,
 
-  corredor: `
-El espacio es más estrecho.
-Las paredes están demasiado cerca.
-Hay marcas que no recuerdas haber hecho.
-`
+El aire ya no pesa igual,
+pero sigues respirándolo con cuidado.
+
+Algo cambió.
+No sabes qué hiciste para que ocurriera.
+  `,
+
+  contradiccion: `
+Las paredes parecen más lejanas,
+aunque el espacio es el mismo.
+
+Cada acción se siente correcta
+y equivocada al mismo tiempo.
+
+Avanzar no es lo que era antes.
+  `,
+
+  inversion: `
+Aquí, esperar produce ruido.
+Pensar deja marcas.
+Obedecer altera el entorno.
+
+Nada responde como debería.
+Y sin embargo, responde.
+  `,
+
+  presencia: `
+No hay lugar aquí.
+
+La luz no viene de arriba.
+La oscuridad no viene de abajo.
+
+Ya no estás solo,
+aunque nunca lo estuviste.
+  `
 };
 
   
@@ -176,12 +212,23 @@ Hay marcas que no recuerdas haber hecho.
   }
   
   function handleSilence() {
-    state.retardo++;
-    textBox.innerHTML += `
-      <br><span style="opacity:0.5">
-      Permaneces en silencio.
-      </span>`;
+  textBox.innerHTML += `
+    <br><span style="opacity:0.5">
+    Permaneces en silencio.
+    </span>`;
+  
+  registerCalmAction();
+}
+function registerCalmAction() {
+  if (sceneBlocked) return;
+
+  calmProgress++;
+
+  if (calmProgress >= 5) {
+    advanceScene();
   }
+}
+
   
   
  // DETECTA INTENCION// linea 49
@@ -265,6 +312,60 @@ Hay marcas que no recuerdas haber hecho.
     // -----------------------------
     // RESPUESTAS POR INTENCIÓN
     // -----------------------------
+    // -----------------------------
+// LÓGICA DE ESCENA: INICIO
+// -----------------------------
+if (state.scene === "subterraneo") {
+
+  // Acciones que bloquean
+  if (currentIntent === "fuerza") {
+    sceneBlocked = true;
+  }
+
+  if (currentIntent === "exploracion" && repetitionCount >= 1) {
+    sceneBlocked = true;
+  }
+
+  // Bloqueo explícito
+  if (sceneBlocked) {
+    textBox.innerHTML += `
+    <br><span style="opacity:0.6">
+    Algo aquí se cierra cuando fuerzas.
+    </span>`;
+    return; // NO puede avanzar
+  }
+
+  // Acciones tranquilas
+  if (currentIntent === "reflexion" || currentIntent === "espera") {
+    calmProgress++;
+
+    textBox.innerHTML += `
+    <br><span style="opacity:0.8">
+    Te aquietas un poco.
+    </span>`;
+  }
+
+  // Silencio también cuenta
+  if (action === "" || action === "silencio") {
+    calmProgress++;
+  }
+
+  
+
+  // Condición de avance
+  if (calmProgress >= 5) {
+    state.scene = "transicion";
+    calmProgress = 0;
+    sceneBlocked = false;
+
+    textBox.innerHTML += `
+    <br><br>
+    ${scenes.transicion}
+    `;
+    return;
+  }
+}
+
     if (currentIntent === "exploracion") {
       state.obsesion++;
       if (hasNegation) state.obsesion++;
@@ -302,6 +403,10 @@ Hay marcas que no recuerdas haber hecho.
   textBox.innerHTML += `<br>El lugar no responde. Tampoco insiste.`;
 }
 
+  else if (currentIntent === "espera" || currentIntent === "reflexion") {
+  registerCalmAction();
+}
+  
     else {
       textBox.innerHTML += `<br>No ocurre nada inmediato.`;
     }
@@ -315,7 +420,14 @@ Hay marcas que no recuerdas haber hecho.
       Lo intentas otra vez. No es distinto.
       </span>`;
     }
-  
+    if (currentIntent === "fuerza" || currentIntent === "exploracion") {
+  sceneBlocked = true;
+  textBox.innerHTML += `
+    <br><span style="opacity:0.6">
+    Algo aquí se cerró.
+    </span>`;
+}
+
     // -----------------------------
     // LA PRESENCIA HABLA (O CALLA)
     // -----------------------------
@@ -323,8 +435,7 @@ Hay marcas que no recuerdas haber hecho.
       speakToPlayer();
     }
   
-    if (state.obsesion <= 1 && state.retardo >= 1 && state.literal >= 1) {
-  state.scene = "transicion";
+    
   textBox.innerHTML += `
   <br><br>
   Algo se afloja.
@@ -341,7 +452,7 @@ El aire ya no pesa igual.
     // FINAL AUTOMÁTICO (FALSO)
     // -----------------------------
     checkAutoEnding();
-  }
+  
   
   function checkAutoEnding() {
     if (state.obsesion >= 6 && repetitionCount >= 3) {
