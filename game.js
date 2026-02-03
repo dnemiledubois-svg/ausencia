@@ -262,13 +262,7 @@ function registerCalmAction() {
     // -----------------------------
     const words = extractWords(action);
 
-    function extractWords(text) {
-      return text
-        .split(" ")
-        .map(w => w.trim())
-        .filter(w => w.length > 2);
-    }
-    
+      
   
     words.forEach(word => {
       memory.words[word] = (memory.words[word] || 0) + 1;
@@ -280,7 +274,12 @@ function registerCalmAction() {
   
     memory.lastWords = words.slice(-3);
 
-
+     function extractWords(text) {
+      return text
+        .split(" ")
+        .map(w => w.trim())
+        .filter(w => w.length > 2);
+    }
   
     // -----------------------------
     // NEGACIÓN
@@ -315,16 +314,6 @@ function registerCalmAction() {
     // -----------------------------
 // LÓGICA DE ESCENA: INICIO
 // -----------------------------
-if (state.scene === "subterraneo") {
-
-  // Acciones que bloquean
-  if (currentIntent === "fuerza") {
-    sceneBlocked = true;
-  }
-
-  if (currentIntent === "exploracion" && repetitionCount >= 1) {
-    sceneBlocked = true;
-  }
 
   // Bloqueo explícito
   if (sceneBlocked) {
@@ -335,37 +324,7 @@ if (state.scene === "subterraneo") {
     return; // NO puede avanzar
   }
 
-  // Acciones tranquilas
-  if (currentIntent === "reflexion" || currentIntent === "espera") {
-    calmProgress++;
-
-    textBox.innerHTML += `
-    <br><span style="opacity:0.8">
-    Te aquietas un poco.
-    </span>`;
-  }
-
-  // Silencio también cuenta
-  if (action === "" || action === "silencio") {
-    calmProgress++;
-  }
-
   
-
-  // Condición de avance
-  if (calmProgress >= 5) {
-    state.scene = "transicion";
-    calmProgress = 0;
-    sceneBlocked = false;
-
-    textBox.innerHTML += `
-    <br><br>
-    ${scenes.transicion}
-    `;
-    return;
-  }
-}
-
     if (currentIntent === "exploracion") {
       state.obsesion++;
       if (hasNegation) state.obsesion++;
@@ -420,12 +379,23 @@ if (state.scene === "subterraneo") {
       Lo intentas otra vez. No es distinto.
       </span>`;
     }
-    if (currentIntent === "fuerza" || currentIntent === "exploracion") {
+    if (state.scene === "subterraneo" &&
+      (currentIntent === "fuerza" || currentIntent === "exploracion")) {
   sceneBlocked = true;
   textBox.innerHTML += `
     <br><span style="opacity:0.6">
     Algo aquí se cerró.
     </span>`;
+}
+
+  function advanceScene() {
+  calmProgress = 0;
+  sceneBlocked = false;
+
+  if (state.scene === "subterraneo") {
+    state.scene = "transicion";
+  }
+  // después agregamos las otras escenas aquí
 }
 
     // -----------------------------
@@ -436,17 +406,9 @@ if (state.scene === "subterraneo") {
     }
   
     
-  textBox.innerHTML += `
-  <br><br>
-  Algo se afloja.
-  <br>
-  No era una puerta.
-  `;
-}
-scenes.transicion = `
-No estás donde estabas.
-El aire ya no pesa igual.
-`;
+  
+
+
 
     // -----------------------------
     // FINAL AUTOMÁTICO (FALSO)
@@ -497,4 +459,4 @@ El aire ya no pesa igual.
 
     // Aquí luego conectamos música, escenas, finales
   
-  
+  }  
